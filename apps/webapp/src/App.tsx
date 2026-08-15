@@ -22,7 +22,7 @@ import {
   type ProviderConfig,
   type ProviderId,
 } from "./lib/models";
-import { loadActiveProvider, loadProviders } from "./lib/storage";
+import { loadActiveProvider, loadProviders, saveProviders } from "./lib/storage";
 import { friendlyApiError, useToast } from "./lib/toasts";
 import ModelPicker from "./ModelPicker";
 import Requirements from "./Requirements";
@@ -74,13 +74,18 @@ export default function App() {
   const autoPreviewedRef = useRef<number | null>(null);
 
   useEffect(() => {
-    setProviders(loadProviders());
-    setActiveId(loadActiveProvider());
+    const p = loadProviders();
+    const a = loadActiveProvider();
+    setProviders(p);
+    setActiveId(a);
     const first = listConversations()[0];
     if (first) {
-      setConvo(first);
-      setMessages(first.messages.map(withId(first)));
-      setActiveId(first.providerId);
+      const migrated = !first.model
+        ? { ...first, model: p[first.providerId]?.model ?? "" }
+        : first;
+      setConvo(migrated);
+      setMessages(migrated.messages.map(withId(migrated)));
+      setActiveId(migrated.providerId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -262,14 +267,17 @@ export default function App() {
     (id: string) => {
       const c = loadConversation(id);
       if (!c) return;
-      setConvo(c);
-      setMessages(c.messages.map((m, i) => ({ ...m, id: i + 1 })));
-      setActiveId(c.providerId);
+      const migrated = !c.model && providers
+        ? { ...c, model: providers[c.providerId]?.model ?? "" }
+        : c;
+      setConvo(migrated);
+      setMessages(migrated.messages.map((m, i) => ({ ...m, id: i + 1 })));
+      setActiveId(migrated.providerId);
       setDrawerOpen(false);
       setView("chat");
       setChatUsage({ prompt: 0, completion: 0 });
     },
-    []
+    [providers]
   );
 
   const newChat = useCallback(() => {
@@ -324,21 +332,28 @@ export default function App() {
   const setModel = useCallback(
     (m: string) => {
       setConvo((c) => (c ? { ...c, model: m } : c));
+      setProviders((p) => {
+        if (!p) return p;
+        const next = { ...p, [activeId]: { ...p[activeId], model: m } };
+        saveProviders(next);
+        return next;
+      });
     },
-    []
+    [activeId]
   );
 
-  const openHeaderPicker = useCallback(async () => {
+  const openHeaderPicker = useCallback(() => {
     setModelPickerOpen(true);
-    if (headerModels === null && active && active.apiKey) {
-      setLoadingHeaderModels(true);
-      try {
-        setHeaderModels(await fetchModels(active.baseUrl, active.apiKey));
-      } catch (e) {
-        notify("error", friendlyApiError((e as Error).message));
-      } finally {
-        setLoadingHeaderModels(false);
+    if (headerModels === null && active) {
+      if (!active.apiKey) {
+        notify("info", "Add an API key in Settings first.");
+        return;
       }
+      setLoadingHeaderModels(true);
+      fetchModels(active.baseUrl, active.apiKey)
+        .then(setHeaderModels)
+        .catch((e) => notify("error", friendlyApiError((e as Error).message)))
+        .finally(() => setLoadingHeaderModels(false));
     }
   }, [headerModels, active, notify]);
 
@@ -640,6 +655,7 @@ export default function App() {
           onClose={() => setSettingsOpen(false)}
           onProvidersChange={setProviders}
           onActiveChange={setActiveId}
+          onModelSynced={setModel}
         />
       )}
       {modelPickerOpen && (

@@ -12,6 +12,7 @@ interface Props {
   onClose: () => void;
   onProvidersChange: (p: Record<ProviderId, ProviderConfig>) => void;
   onActiveChange: (id: ProviderId) => void;
+  onModelSynced: (model: string) => void;
 }
 
 export default function Settings({
@@ -20,6 +21,7 @@ export default function Settings({
   onClose,
   onProvidersChange,
   onActiveChange,
+  onModelSynced,
 }: Props) {
   const { notify } = useToast();
   const [tab, setTab] = useState<ProviderId>(activeId);
@@ -96,6 +98,7 @@ export default function Settings({
   const save = () => {
     saveProviders(providers);
     saveActiveProvider(activeId);
+    if (tab === activeId) onModelSynced(p.model);
     notify("success", "Saved successfully.");
   };
 
