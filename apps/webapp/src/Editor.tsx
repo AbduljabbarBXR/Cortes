@@ -7,9 +7,11 @@ interface Props {
   active: string | null;
   streaming: boolean;
   prev: CodeFile[];
+  backLabel?: string;
+  onBack?: () => void;
 }
 
-export default function CodeEditor({ files, active, streaming, prev }: Props) {
+export default function CodeEditor({ files, active, streaming, prev, backLabel, onBack }: Props) {
   const [tab, setTab] = useState<string | null>(null);
   const [dots, setDots] = useState(1);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -40,6 +42,12 @@ export default function CodeEditor({ files, active, streaming, prev }: Props) {
           .split("\n")
           .map((text, i) => ({ text, kind: "same" as const, oldNo: i + 1, newNo: i + 1 }))
     : [];
+  const diffCounts = showDiff
+    ? {
+        adds: lines.filter((l) => l.kind === "add").length,
+        dels: lines.filter((l) => l.kind === "del").length,
+      }
+    : null;
 
   return (
     <div className="editorView">
@@ -57,10 +65,21 @@ export default function CodeEditor({ files, active, streaming, prev }: Props) {
             )}
           </button>
         ))}
+        {onBack && (
+          <button className="editorTab editorTabsBack" onClick={onBack}>
+            {backLabel}
+          </button>
+        )}
       </div>
       <div className="editorBody">
         {file ? (
-          <div className="editorLines">
+          <>
+            {diffCounts && (
+              <div className="diffSummary">
+                {diffCounts.adds} added, {diffCounts.dels} removed
+              </div>
+            )}
+            <div className="editorLines">
             {lines.map((ln, i) => (
               <div
                 key={i}
@@ -77,7 +96,8 @@ export default function CodeEditor({ files, active, streaming, prev }: Props) {
               </div>
             )}
             <div ref={scrollRef} />
-          </div>
+            </div>
+          </>
         ) : (
           <div className="editorEmpty">
             <p>Crafting{".".repeat(dots)}</p>

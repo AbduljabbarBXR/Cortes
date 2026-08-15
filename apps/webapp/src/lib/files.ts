@@ -50,12 +50,23 @@ export function parseStreamedFiles(text: string): {
  * Greedy line diff: same lines are kept in order, changed lines are marked
  * add or del, each with its 1 based old and new line number (0 when absent).
  * Trailing newlines are ignored so no phantom empty line appears.
+ * Lines are matched ignoring whitespace, so models that re emit a file with
+ * formatting drift do not show the whole file as rewritten.
  */
 export function diffLines(before: string, after: string): DiffLine[] {
   const b = before.split("\n");
   const a = after.split("\n");
   if (b[b.length - 1] === "") b.pop();
   if (a[a.length - 1] === "") a.pop();
+  const eq = (x: string, y: string) => x.replace(/\s+/g, "") === y.replace(/\s+/g, "");
+  const findInB = (from: number, line: string) => {
+    for (let i = from; i < b.length; i++) if (eq(b[i], line)) return i;
+    return -1;
+  };
+  const findInA = (from: number, line: string) => {
+    for (let i = from; i < a.length; i++) if (eq(a[i], line)) return i;
+    return -1;
+  };
   const out: DiffLine[] = [];
   let bi = 0;
   let ai = 0;
@@ -73,15 +84,15 @@ export function diffLines(before: string, after: string): DiffLine[] {
     ai++;
   };
   while (ai < a.length || bi < b.length) {
-    if (ai < a.length && bi < b.length && b[bi] === a[ai]) {
+    if (ai < a.length && bi < b.length && eq(b[bi], a[ai])) {
       same();
     } else if (ai >= a.length) {
       del();
     } else if (bi >= b.length) {
       add();
     } else {
-      const inB = b.indexOf(a[ai], bi);
-      const inA = a.indexOf(b[bi], ai);
+      const inB = findInB(bi, a[ai]);
+      const inA = findInA(ai, b[bi]);
       if (inB === -1 && inA === -1) {
         del();
       } else if (inB !== -1 && (inA === -1 || inB - bi <= inA - ai)) {

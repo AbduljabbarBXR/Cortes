@@ -32,7 +32,9 @@ Follow this exact output format:
 
 End the response with the line: Phase 1 complete. Reply "next" to build the next phase (features section, then details, then footer).
 
-For later phases: skip the diagram unless the architecture changes, show only the files that change, and keep the same output style.`;
+For later phases: skip the diagram unless the architecture changes, show only the files that change, and keep the same output style.
+
+When the user requests a change to existing code, modify ONLY the lines that need to change. Keep every other line byte identical, including indentation, quotes, spacing, and casing. Never regenerate a file the change does not touch, and never restyle or reformat files you were not asked to change.`;
 
 export function buildBrief(b: Brief): string {
   const parts: string[] = [];

@@ -76,6 +76,10 @@ export default function App() {
   const inputRef = useRef<HTMLInputElement>(null);
   const paneScrollRef = useRef<HTMLDivElement>(null);
   const prevFilesRef = useRef<CodeFile[]>([]);
+  const previewedIdRef = useRef<number | null>(null);
+  const previewTimerRef = useRef<number | null>(null);
+  const lastWasEditRef = useRef(false);
+  const streamRef = useRef({ estPrompt: 0, estCompletion: 0, gotUsage: false });
 
   useEffect(() => {
     const p = loadProviders();
@@ -153,6 +157,7 @@ export default function App() {
       setStreaming(true);
 
       const priorWork = messages.some((m) => m.role === "assistant" && m.content.length > 0);
+      lastWasEditRef.current = priorWork;
       if (priorWork) {
         const prevLast = [...messages].reverse().find((m) => m.role === "assistant" && m.content.length > 0);
         if (prevLast) prevFilesRef.current = parseStreamedFiles(prevLast.content).files;
@@ -169,7 +174,21 @@ export default function App() {
         : history.map((m) => ({ role: m.role, content: m.content }));
 
       const promptText = history.map((m) => m.content).join("") + (sys ?? "");
-      setChatUsage((u) => ({ ...u, prompt: u.prompt + estimateTokens(promptText) }));
+      streamRef.current = { estPrompt: estimateTokens(promptText), estCompletion: 0, gotUsage: false };
+
+      const finalizeEstimate = () => {
+        if (streamRef.current.gotUsage) return;
+        const est = {
+          prompt: streamRef.current.estPrompt,
+          completion: streamRef.current.estCompletion,
+        };
+        setChatUsage((u) => ({ ...u, prompt: u.prompt + est.prompt, completion: u.completion + est.completion }));
+        setSessionUsage((u) => ({
+          ...u,
+          prompt: u.prompt + est.prompt,
+          completion: u.completion + est.completion,
+        }));
+      };
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -182,6 +201,7 @@ export default function App() {
           messages: conversation,
           signal: controller.signal,
           onText: (delta) => {
+            streamRef.current.estCompletion += estimateTokens(delta);
             setMessages((m) =>
               m.map((msg) =>
                 msg.id === asstMsg.id ? { ...msg, content: msg.content + delta } : msg
@@ -196,6 +216,7 @@ export default function App() {
             );
           },
           onUsage: (u) => {
+            streamRef.current.gotUsage = true;
             const add = (prev: Usage): Usage => ({
               prompt: prev.prompt + u.promptTokens,
               completion: prev.completion + u.completionTokens,
@@ -204,6 +225,7 @@ export default function App() {
             setSessionUsage((prev) => add(prev));
           },
           onDone: () => {
+            finalizeEstimate();
             setMessages((m) =>
               m.map((msg) => (msg.id === asstMsg.id ? { ...msg, streaming: false } : msg))
             );
@@ -213,6 +235,7 @@ export default function App() {
       } catch (e: unknown) {
         const err = e as Error;
         const isAbort = err.name === "AbortError";
+        finalizeEstimate();
         setMessages((m) =>
           m.map((msg) =>
             msg.id === asstMsg.id
@@ -273,9 +296,27 @@ export default function App() {
   }, [messages]);
 
   useEffect(() => {
-    if (view === "editor" && lastAssistant && !lastAssistant.streaming && previewHtml) {
-      setView("preview");
+    if (
+      view === "editor" &&
+      lastAssistant &&
+      !lastAssistant.streaming &&
+      previewHtml &&
+      previewedIdRef.current !== lastAssistant.id
+    ) {
+      previewedIdRef.current = lastAssistant.id;
+      const flip = () => setView((v) => (v === "editor" ? "preview" : v));
+      if (lastWasEditRef.current) {
+        previewTimerRef.current = window.setTimeout(flip, 3500);
+      } else {
+        flip();
+      }
     }
+    return () => {
+      if (previewTimerRef.current !== null) {
+        window.clearTimeout(previewTimerRef.current);
+        previewTimerRef.current = null;
+      }
+    };
   }, [view, previewHtml, lastAssistant]);
 
   const openChat = useCallback(
@@ -377,7 +418,10 @@ export default function App() {
   }, [headerModels, loadHeaderModels]);
 
   const conversations = drawerOpen ? listConversations() : [];
-  const chatTokens = chatUsage.prompt + chatUsage.completion;
+  const liveEstimate = streaming
+    ? streamRef.current.estPrompt + streamRef.current.estCompletion
+    : 0;
+  const chatTokens = chatUsage.prompt + chatUsage.completion + liveEstimate;
   const sessionTokens = sessionUsage.prompt + sessionUsage.completion;
 
   const renderFences = () => (
@@ -466,22 +510,12 @@ export default function App() {
             active={fileState.activeName}
             streaming={streaming}
             prev={prevFilesRef.current}
+            backLabel="◀ Chat"
+            onBack={() => {
+              setView("chat");
+              setPreviewCollapsed(true);
+            }}
           />
-          <div className="miniBar">
-            <button
-              className="backBtn"
-              onClick={() => {
-                setView("chat");
-                setPreviewCollapsed(true);
-              }}
-            >
-              ◀ Chat
-            </button>
-            <div className="miniInputWrap" onClick={() => setView("chat")}>
-              {composerInput}
-            </div>
-            {sendBtn}
-          </div>
         </>
       ) : view === "preview" ? (
         <>
@@ -493,23 +527,16 @@ export default function App() {
               active={fileState.activeName}
               streaming={streaming}
               prev={prevFilesRef.current}
-            />
-          )}
-          <div className="miniBar">
-            <button
-              className="backBtn"
-              onClick={() => {
+              backLabel="◀ Chat"
+              onBack={() => {
                 setView("chat");
                 setPreviewCollapsed(true);
               }}
-            >
-              ◀ Code
-            </button>
-            <div className="miniInputWrap" onClick={() => setView("chat")}>
-              {composerInput}
-            </div>
-            {sendBtn}
-          </div>
+            />
+          )}
+          <button className="backTab backTabFloat" onClick={() => setView("editor")}>
+            ◀ Code
+          </button>
         </>
       ) : (
         <>
