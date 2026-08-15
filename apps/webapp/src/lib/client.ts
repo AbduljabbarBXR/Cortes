@@ -89,10 +89,19 @@ export async function streamChat(opts: StreamOptions): Promise<void> {
 }
 
 export function extractHtml(markdown: string): string | null {
-  const match = markdown.match(/```(?:html)?\s*(<!DOCTYPE html>|<html[\s>]).*?<\/html>\s*```/is);
-  if (match) return match[0].replace(/```(?:html)?\s*/is, "").replace(/\s*```\s*$/s, "");
-  const bare = markdown.match(/(<!DOCTYPE html>|<html[\s>])[\s\S]*?<\/html>/i);
-  return bare ? bare[0] : null;
+  const fence = markdown.match(
+    /```(?:html)?\s*(<!DOCTYPE html>|<html[\s>])[\s\S]*?<\/html>\s*```/is
+  );
+  if (fence) return fence[0].replace(/```(?:html)?\s*/is, "").replace(/\s*```\s*$/s, "");
+  const bare = markdown.match(/(<!DOCTYPE html>|<html[\s>])[\s\S]*?<\/html>/is);
+  if (bare) return bare[0];
+  const partial = markdown.match(/(<!DOCTYPE html>|<html[\s>])[\s\S]*$/is);
+  if (partial) return partial[0] + "\n</body>\n</html>";
+  const frag = markdown.match(/```(?:html)?\s*\n([\s\S]*?)(?:```|$)/is);
+  if (frag && /<(?:head|body|main|div|h[1-6]|p|section|header|footer|ul|ol|table|nav|a|form)\b/i.test(frag[1])) {
+    return `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"></head>\n<body>\n${frag[1].trim()}\n</body>\n</html>`;
+  }
+  return null;
 }
 
 export const PRE_PROMPTS = [

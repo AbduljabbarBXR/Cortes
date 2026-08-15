@@ -41,6 +41,24 @@ export const PROVIDER_PRESETS: Record<ProviderId, ProviderConfig> = {
 export const PROVIDER_IDS: ProviderId[] = ["deepseek", "openrouter", "custom"];
 
 /**
+ * Known good model ids shown when the live /models list cannot be fetched.
+ * OpenRouter ids below are verified to exist on the public model list.
+ */
+export const MODEL_FALLBACKS: Record<ProviderId, string[]> = {
+  deepseek: ["deepseek-chat", "deepseek-reasoner"],
+  openrouter: [
+    "openai/gpt-oss-20b:free",
+    "openai/gpt-4o-mini",
+    "openai/gpt-4o",
+    "deepseek/deepseek-chat",
+    "meta-llama/llama-3.3-70b-instruct",
+    "mistralai/mistral-small-3.1-24b-instruct",
+    "qwen/qwen-2.5-72b-instruct",
+  ],
+  custom: [],
+};
+
+/**
  * Sniffs the provider from an API key prefix. Returns the provider id to
  * activate plus the fields to fill. null means the key format is unknown.
  */
@@ -73,7 +91,7 @@ export function detectProvider(key: string): {
 export async function fetchModels(baseUrl: string, apiKey: string): Promise<string[]> {
   const url = `${baseUrl.replace(/\/+$/, "")}/models`;
   const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${apiKey}` },
+    headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}: failed to list models`);
   const json = (await res.json()) as { data?: { id: string }[] };

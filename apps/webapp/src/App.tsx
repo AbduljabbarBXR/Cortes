@@ -18,12 +18,15 @@ import {
   fetchCredits,
   fetchModels,
   formatTokens,
+  MODEL_FALLBACKS,
   PROVIDER_PRESETS,
   type ProviderConfig,
   type ProviderId,
 } from "./lib/models";
 import { loadActiveProvider, loadProviders, saveProviders } from "./lib/storage";
 import { friendlyApiError, useToast } from "./lib/toasts";
+import { parseStreamedFiles, type CodeFile } from "./lib/files";
+import CodeEditor from "./Editor";
 import ModelPicker from "./ModelPicker";
 import Requirements from "./Requirements";
 import Settings from "./Settings";
@@ -52,7 +55,7 @@ export default function App() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
-  const [view, setView] = useState<"chat" | "preview">("chat");
+  const [view, setView] = useState<"chat" | "editor" | "preview">("chat");
   const [previewCollapsed, setPreviewCollapsed] = useState(false);
   const [scaffoldTab, setScaffoldTab] = useState<"scaffold" | "preview">("scaffold");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -71,7 +74,8 @@ export default function App() {
   const abortRef = useRef<AbortController | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const autoPreviewedRef = useRef<number | null>(null);
+  const paneScrollRef = useRef<HTMLDivElement>(null);
+  const prevFilesRef = useRef<CodeFile[]>([]);
 
   useEffect(() => {
     const p = loadProviders();
@@ -86,6 +90,8 @@ export default function App() {
       setConvo(migrated);
       setMessages(migrated.messages.map(withId(migrated)));
       setActiveId(migrated.providerId);
+    } else {
+      setConvo(newConversation(a, p[a]?.model ?? ""));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -146,16 +152,23 @@ export default function App() {
       setInput("");
       setStreaming(true);
 
-      const history: Msg[] = [...messages, userMsg];
-      const conversation: { role: "user" | "assistant" | "system"; content: string }[] =
-        systemPrompt
-          ? [
-              { role: "system", content: systemPrompt },
-              ...history.map((m) => ({ role: m.role, content: m.content })),
-            ]
-          : history.map((m) => ({ role: m.role, content: m.content }));
+      const priorWork = messages.some((m) => m.role === "assistant" && m.content.length > 0);
+      if (priorWork) {
+        const prevLast = [...messages].reverse().find((m) => m.role === "assistant" && m.content.length > 0);
+        if (prevLast) prevFilesRef.current = parseStreamedFiles(prevLast.content).files;
+      }
+      setView("editor");
 
-      const promptText = history.map((m) => m.content).join("") + (systemPrompt ?? "");
+      const history: Msg[] = [...messages, userMsg];
+      const sys = convo?.systemPrompt ?? systemPrompt;
+      const conversation: { role: "user" | "assistant" | "system"; content: string }[] = sys
+        ? [
+            { role: "system", content: sys },
+            ...history.map((m) => ({ role: m.role, content: m.content })),
+          ]
+        : history.map((m) => ({ role: m.role, content: m.content }));
+
+      const promptText = history.map((m) => m.content).join("") + (sys ?? "");
       setChatUsage((u) => ({ ...u, prompt: u.prompt + estimateTokens(promptText) }));
 
       const controller = new AbortController();
@@ -223,6 +236,7 @@ export default function App() {
   const startBuild = useCallback(
     (b: Brief) => {
       setReqOpen(false);
+      setConvo((c) => (c ? { ...c, systemPrompt: BUILD_SYSTEM_PROMPT } : c));
       void send(buildBrief(b), BUILD_SYSTEM_PROMPT);
     },
     [send]
@@ -249,19 +263,20 @@ export default function App() {
     [lastAssistant]
   );
   const hasScaffold = scaffold !== null && scaffold.allTags.length > 0;
+  const fileState = useMemo(
+    () => parseStreamedFiles(lastAssistant?.content ?? ""),
+    [lastAssistant?.content]
+  );
 
   useEffect(() => {
-    if (
-      previewHtml &&
-      view === "chat" &&
-      lastAssistant &&
-      autoPreviewedRef.current !== lastAssistant.id
-    ) {
-      autoPreviewedRef.current = lastAssistant.id;
+    paneScrollRef.current?.scrollIntoView({ block: "end" });
+  }, [messages]);
+
+  useEffect(() => {
+    if (view === "editor" && lastAssistant && !lastAssistant.streaming && previewHtml) {
       setView("preview");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [previewHtml, view, lastAssistant?.id]);
+  }, [view, previewHtml, lastAssistant]);
 
   const openChat = useCallback(
     (id: string) => {
@@ -275,6 +290,8 @@ export default function App() {
       setActiveId(migrated.providerId);
       setDrawerOpen(false);
       setView("chat");
+      setPreviewCollapsed(false);
+      prevFilesRef.current = [];
       setChatUsage({ prompt: 0, completion: 0 });
     },
     [providers]
@@ -286,6 +303,8 @@ export default function App() {
     setMessages([]);
     setChatUsage({ prompt: 0, completion: 0 });
     setView("chat");
+    setPreviewCollapsed(true);
+    prevFilesRef.current = [];
     setDrawerOpen(false);
   }, [activeId, active]);
 
@@ -331,7 +350,7 @@ export default function App() {
 
   const setModel = useCallback(
     (m: string) => {
-      setConvo((c) => (c ? { ...c, model: m } : c));
+      setConvo((c) => (c ? { ...c, model: m } : newConversation(activeId, m)));
       setProviders((p) => {
         if (!p) return p;
         const next = { ...p, [activeId]: { ...p[activeId], model: m } };
@@ -342,20 +361,20 @@ export default function App() {
     [activeId]
   );
 
+  const loadHeaderModels = useCallback(() => {
+    if (!active) return;
+    if (!active.apiKey && activeId !== "openrouter") return;
+    setLoadingHeaderModels(true);
+    fetchModels(active.baseUrl, active.apiKey)
+      .then(setHeaderModels)
+      .catch((e) => notify("error", friendlyApiError((e as Error).message)))
+      .finally(() => setLoadingHeaderModels(false));
+  }, [active, activeId, notify]);
+
   const openHeaderPicker = useCallback(() => {
     setModelPickerOpen(true);
-    if (headerModels === null && active) {
-      if (!active.apiKey) {
-        notify("info", "Add an API key in Settings first.");
-        return;
-      }
-      setLoadingHeaderModels(true);
-      fetchModels(active.baseUrl, active.apiKey)
-        .then(setHeaderModels)
-        .catch((e) => notify("error", friendlyApiError((e as Error).message)))
-        .finally(() => setLoadingHeaderModels(false));
-    }
-  }, [headerModels, active, notify]);
+    if (headerModels === null) loadHeaderModels();
+  }, [headerModels, loadHeaderModels]);
 
   const conversations = drawerOpen ? listConversations() : [];
   const chatTokens = chatUsage.prompt + chatUsage.completion;
@@ -440,11 +459,50 @@ export default function App() {
 
   return (
     <div className="app">
-      {view === "preview" && previewHtml ? (
+      {view === "editor" ? (
         <>
-          <iframe className="fullscreenFrame" srcDoc={previewHtml} title="preview" />
+          <CodeEditor
+            files={fileState.files}
+            active={fileState.activeName}
+            streaming={streaming}
+            prev={prevFilesRef.current}
+          />
           <div className="miniBar">
-            <button className="backBtn" onClick={() => setView("chat")}>
+            <button
+              className="backBtn"
+              onClick={() => {
+                setView("chat");
+                setPreviewCollapsed(true);
+              }}
+            >
+              ◀ Chat
+            </button>
+            <div className="miniInputWrap" onClick={() => setView("chat")}>
+              {composerInput}
+            </div>
+            {sendBtn}
+          </div>
+        </>
+      ) : view === "preview" ? (
+        <>
+          {previewHtml ? (
+            <iframe className="fullscreenFrame" srcDoc={previewHtml} title="preview" />
+          ) : (
+            <CodeEditor
+              files={fileState.files}
+              active={fileState.activeName}
+              streaming={streaming}
+              prev={prevFilesRef.current}
+            />
+          )}
+          <div className="miniBar">
+            <button
+              className="backBtn"
+              onClick={() => {
+                setView("chat");
+                setPreviewCollapsed(true);
+              }}
+            >
               ◀ Code
             </button>
             <div className="miniInputWrap" onClick={() => setView("chat")}>
@@ -510,7 +568,16 @@ export default function App() {
           </header>
 
           <section className="preview">
-            <button className="previewBar" onClick={() => setPreviewCollapsed((c) => !c)}>
+            <button
+              className="previewBar"
+              onClick={() => {
+                if (previewCollapsed && lastAssistant) {
+                  setView(previewHtml ? "preview" : "editor");
+                } else {
+                  setPreviewCollapsed((c) => !c);
+                }
+              }}
+            >
               <span className="previewLabel">
                 {hasScaffold ? "BUILD" : previewHtml ? "PREVIEW" : "CANVAS"}
               </span>
@@ -534,7 +601,12 @@ export default function App() {
             )}
             {!previewCollapsed && (
               <div className="previewBody">
-                {hasScaffold && scaffoldTab === "scaffold" ? (
+                {lastAssistant?.streaming ? (
+                  <div className="paneStream">
+                    <pre>{lastAssistant.content}</pre>
+                    <div ref={paneScrollRef} />
+                  </div>
+                ) : hasScaffold && scaffoldTab === "scaffold" ? (
                   renderFences()
                 ) : previewHtml ? (
                   <iframe className="previewFrame" srcDoc={previewHtml} title="preview" />
@@ -664,19 +736,10 @@ export default function App() {
           models={headerModels}
           loading={loadingHeaderModels}
           value={convo?.model ?? ""}
+          fallback={MODEL_FALLBACKS[activeId]}
           onSelect={setModel}
           onClose={() => setModelPickerOpen(false)}
-          onLoad={() => {
-            if (!active?.apiKey) {
-              notify("error", "Set an API key in Settings first.");
-              return;
-            }
-            setLoadingHeaderModels(true);
-            fetchModels(active.baseUrl, active.apiKey)
-              .then(setHeaderModels)
-              .catch((e) => notify("error", friendlyApiError((e as Error).message)))
-              .finally(() => setLoadingHeaderModels(false));
-          }}
+          onLoad={loadHeaderModels}
         />
       )}
     </div>

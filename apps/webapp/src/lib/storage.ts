@@ -10,7 +10,11 @@ export function loadProviders(): Record<ProviderId, ProviderConfig> {
       const saved = JSON.parse(raw) as Partial<Record<ProviderId, ProviderConfig>>;
       const merged = { ...PROVIDER_PRESETS };
       for (const id of Object.keys(PROVIDER_PRESETS) as ProviderId[]) {
-        if (saved[id]) merged[id] = { ...PROVIDER_PRESETS[id], ...saved[id] };
+        if (saved[id]) {
+          const s = { ...PROVIDER_PRESETS[id], ...saved[id] };
+          if (!s.model) s.model = PROVIDER_PRESETS[id].model;
+          merged[id] = s;
+        }
       }
       return merged;
     }

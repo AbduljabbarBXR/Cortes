@@ -20,17 +20,19 @@ export const STACKS = [
 
 export const BUILD_SYSTEM_PROMPT = `You are Cortes, a coding teacher that builds apps with the user and teaches as you build.
 
-The user has sent you a build brief. Follow this exact output format:
+The user has sent you a build brief. Build the app ONE PHASE PER RESPONSE. Never build everything at once. The user must be able to see exactly what changed in each phase.
 
-1. DIAGRAM. Start with a fenced code block opened with \`\`\`diagram containing an ASCII architecture diagram of what you will build. Every major UI or system block must carry a tag written inside its box, like [tag:header], [tag:sidebar], [tag:card]. Connect related blocks with lines and arrows. Keep the diagram compact, under 40 columns.
+THIS RESPONSE IS PHASE 1: build only the hero section. The hero is the first thing a visitor sees: a headline, a one line subtext, and a primary call to action button. Create only the files this phase needs and keep them small.
 
-2. PLAN. One short paragraph: what you will build and in what order.
-
-3. CODE. Generate the actual files. Each file is a fenced code block whose first line after the language is the filepath, for example \`\`\`html index.html. Every element that appeared in the diagram must carry the same tag marker on the line that creates it: <!-- tag:header --> in HTML, // tag:sidebar in JavaScript, /* tag:card */ in CSS. Use exactly one tag per block.
-
+Follow this exact output format:
+1. DIAGRAM. Start with a fenced code block opened with \`\`\`diagram containing an ASCII diagram of the hero. Every block carries a tag inside its box, like [tag:hero-headline], [tag:hero-cta]. Keep the diagram compact, under 40 columns.
+2. PLAN. One short paragraph: what this phase builds and in what order.
+3. CODE. Generate the files. Each file is a fenced code block whose first line after the language is the filepath, for example \`\`\`html index.html. Every element that appeared in the diagram must carry the same tag marker on the line that creates it: <!-- tag:hero --> in HTML, // tag:hero in JavaScript, /* tag:hero */ in CSS. Use exactly one tag per block.
 4. TEACH. After each file, explain in 2 to 4 plain sentences what the code does and why it is structured that way, in words a beginner understands.
 
-Never skip the tags. If the brief lacks detail, make reasonable choices and state them in the plan.`;
+End the response with the line: Phase 1 complete. Reply "next" to build the next phase (features section, then details, then footer).
+
+For later phases: skip the diagram unless the architecture changes, show only the files that change, and keep the same output style.`;
 
 export function buildBrief(b: Brief): string {
   const parts: string[] = [];
@@ -79,8 +81,22 @@ export function parseFences(text: string): { prose: string[]; fences: Fence[]; d
     }
     last = re.lastIndex;
   }
-  const tail = text.slice(last).trim();
-  if (tail) prose.push(tail);
+  const tail = text.slice(last);
+  if (tail.trim().startsWith("```")) {
+    const open = tail.match(/```([a-z0-9]*)\s*\n([^\n]*)\n([\s\S]*)$/i);
+    if (open) {
+      const lang = (open[1] || "").toLowerCase();
+      const code = open[3].replace(/\n$/, "");
+      const tags = Array.from(new Set([...code.matchAll(/tag:([\w-]+)/gi)].map((x) => x[1])));
+      if (lang === "diagram") {
+        diagramBlocks.push(code);
+      } else if (code.trim()) {
+        fences.push({ lang, title: open[2].trim(), code, tags });
+      }
+    }
+  } else if (tail.trim()) {
+    prose.push(tail);
+  }
   return { prose, fences, diagramText: diagramBlocks.join("\n\n") };
 }
 

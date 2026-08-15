@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import type { ProviderConfig, ProviderId } from "./lib/models";
-import { PROVIDER_IDS, detectProvider, fetchCredits, fetchModels } from "./lib/models";
+import { detectProvider, fetchCredits, fetchModels, MODEL_FALLBACKS, PROVIDER_IDS } from "./lib/models";
 import { saveActiveProvider, saveProviders } from "./lib/storage";
 import { useToast } from "./lib/toasts";
 import ModelPicker from "./ModelPicker";
@@ -45,7 +45,10 @@ export default function Settings({
   const p = providers[tab];
 
   const update = (patch: Partial<ProviderConfig>) => {
-    onProvidersChange({ ...providers, [tab]: { ...p, ...patch } });
+    const next = { ...providers, [tab]: { ...p, ...patch } };
+    onProvidersChange(next);
+    saveProviders(next);
+    if (patch.model !== undefined && tab === activeId) onModelSynced(patch.model);
   };
 
   const quickAdd = (key: string) => {
@@ -62,17 +65,20 @@ export default function Settings({
       model: detected.model || next[detected.id].model,
     };
     onProvidersChange(next);
+    saveProviders(next);
     onActiveChange(detected.id);
+    saveActiveProvider(detected.id);
     setQuickKey("");
     setDetectError("");
     notify("success", "API key added successfully.");
   };
 
   const loadModels = async () => {
-    if (!p.baseUrl || !p.apiKey) {
-      notify("error", "Set the base URL and API key first.");
+    if (!p.baseUrl) {
+      notify("error", "Set the base URL first.");
       return;
     }
+    if (!p.apiKey && tab !== "openrouter") return;
     setLoadingModels(true);
     try {
       setModels(await fetchModels(p.baseUrl, p.apiKey));
@@ -100,6 +106,7 @@ export default function Settings({
     saveActiveProvider(activeId);
     if (tab === activeId) onModelSynced(p.model);
     notify("success", "Saved successfully.");
+    onClose();
   };
 
   return (
@@ -204,6 +211,7 @@ export default function Settings({
           models={models}
           loading={loadingModels}
           value={p.model}
+          fallback={MODEL_FALLBACKS[tab]}
           onSelect={(m) => update({ model: m })}
           onClose={() => setModelPickerOpen(false)}
           onLoad={loadModels}

@@ -47,6 +47,155 @@ body {
   z-index: 1;
 }
 
+.editorView {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.editorTabs {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px 0;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.editorEmptyTab {
+  color: var(--dim2);
+  font-size: 12px;
+  padding: 8px 12px;
+}
+
+.editorTab {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  color: var(--dim);
+  border-radius: 8px 8px 0 0;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.editorTabActive {
+  color: var(--gold);
+  border-color: var(--gold);
+}
+
+.editorChangedDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold);
+  display: inline-block;
+}
+
+.editorBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  padding-bottom: 90px;
+}
+
+.editorLines {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.editorLine {
+  display: flex;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.editorLineNo {
+  width: 42px;
+  flex-shrink: 0;
+  color: var(--dim2);
+  text-align: right;
+  padding-right: 12px;
+  user-select: none;
+}
+
+.editorLineText {
+  flex: 1;
+  color: var(--text);
+}
+
+.diffAdd {
+  background: rgba(46, 160, 67, 0.18);
+}
+
+.diffAdd .editorLineText {
+  color: #7ee787;
+}
+
+.diffDel {
+  background: rgba(248, 81, 73, 0.14);
+}
+
+.diffDel .editorLineText {
+  color: #ffa198;
+  text-decoration: line-through;
+}
+
+.editorCursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--gold);
+  animation: editorBlink 1s steps(2) infinite;
+  vertical-align: text-bottom;
+}
+
+@keyframes editorBlink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.editorEmpty {
+  color: var(--dim2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  padding: 24px;
+}
+
+.editorEmpty p {
+  margin: 0;
+  font-size: 15px;
+}
+
+.paneStream {
+  padding: 12px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.paneStream pre {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+}
+
 .miniBar {
   position: fixed;
   left: 50%;
@@ -336,6 +485,28 @@ body {
   flex: 1;
   overflow-y: auto;
   margin-top: 10px;
+}
+
+.manualRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.manualBtn {
+  background: var(--surface2);
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.manualBtn:disabled {
+  opacity: 0.4;
 }
 
 .modelEmpty {

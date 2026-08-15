@@ -5,6 +5,7 @@ interface Props {
   models: string[] | null;
   loading: boolean;
   value: string;
+  fallback?: string[];
   onSelect: (m: string) => void;
   onClose: () => void;
   onLoad: () => void;
@@ -15,23 +16,25 @@ export default function ModelPicker({
   models,
   loading,
   value,
+  fallback = [],
   onSelect,
   onClose,
   onLoad,
 }: Props) {
   const [query, setQuery] = useState("");
+  const [manual, setManual] = useState("");
 
   useEffect(() => {
     if (models === null && !loading) onLoad();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [models === null]);
 
+  const base = models ?? fallback;
   const filtered = useMemo(() => {
-    if (!models) return [];
     const q = query.trim().toLowerCase();
-    if (!q) return models;
-    return models.filter((m) => m.toLowerCase().includes(q));
-  }, [models, query]);
+    if (!q) return base;
+    return base.filter((m) => m.toLowerCase().includes(q));
+  }, [base, query]);
 
   return (
     <div className="overlay" onClick={onClose}>
@@ -53,10 +56,8 @@ export default function ModelPicker({
         <div className="modelList">
           {loading ? (
             <p className="modelEmpty">Loading…</p>
-          ) : models === null ? (
-            <p className="modelEmpty">No models loaded yet.</p>
           ) : filtered.length === 0 ? (
-            <p className="modelEmpty">No matches for "{query}".</p>
+            <p className="modelEmpty">No matching models. Type a model id below.</p>
           ) : (
             filtered.map((m) => (
               <button
@@ -73,6 +74,28 @@ export default function ModelPicker({
             ))
           )}
         </div>
+        <form
+          className="manualRow"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const m = manual.trim();
+            if (m) {
+              onSelect(m);
+              onClose();
+            }
+          }}
+        >
+          <input
+            className="field"
+            value={manual}
+            onChange={(e) => setManual(e.target.value)}
+            placeholder="Or type a model id manually"
+            spellCheck={false}
+          />
+          <button className="manualBtn" type="submit" disabled={!manual.trim()}>
+            Set model
+          </button>
+        </form>
       </div>
     </div>
   );

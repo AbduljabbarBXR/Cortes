@@ -12,6 +12,7 @@ export interface Conversation {
   title: string;
   providerId: ProviderId;
   model: string;
+  systemPrompt?: string;
   createdAt: number;
   updatedAt: number;
   messages: StoredMsg[];
