@@ -203,3 +203,6 @@ native/fts5_cjk/*.so
 .lazy-refresh-incomplete
 apps/mobile/dist/
 apps/mobile/hermesc-override/
+apps/mobile/android/
+apps/mobile/ios/
+apps/mobile/.expo/

@@ -238,7 +238,7 @@ export default function ChatScreen() {
               <View style={styles.previewPlaceholder}>
                 <Ionicons name="grid-outline" size={28} color="#3a4250" />
                 <Text style={styles.previewPlaceholderText}>
-                  The app Cortes builds will render here — ask it to build something.
+                  The app Cortes builds will render here. Ask it to build something.
                 </Text>
               </View>
             )}

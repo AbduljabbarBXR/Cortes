@@ -34,7 +34,7 @@ export const PROVIDER_PRESETS: Record<ProviderId, ProviderConfig> = {
     baseUrl: "https://openrouter.ai/api/v1",
     apiKey: env.EXPO_PUBLIC_OPENROUTER_API_KEY ?? "",
     model: env.EXPO_PUBLIC_OPENROUTER_MODEL ?? "deepseek/deepseek-r1:free",
-    hint: "Free trial models use the :free suffix — one key covers hundreds of models",
+    hint: "Free trial models use the :free suffix. One key covers hundreds of models",
   },
   custom: {
     id: "custom",

@@ -57,7 +57,7 @@ export default function SettingsScreen() {
     >
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.note}>
-          Keys live on your device only — nothing leaves the phone except requests to the
+          Keys live on your device only. Nothing leaves the phone except requests to the
           provider you pick. Env defaults (EXPO_PUBLIC_*) show as placeholders.
         </Text>
 
