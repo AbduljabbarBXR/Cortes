@@ -12,7 +12,14 @@ import {
   View,
 } from "react-native";
 
-import { PROVIDER_IDS, PROVIDER_PRESETS, type ProviderConfig, type ProviderId } from "../lib/models";
+import {
+  PROVIDER_IDS,
+  PROVIDER_PRESETS,
+  detectProvider,
+  fetchModels,
+  type ProviderConfig,
+  type ProviderId,
+} from "../lib/models";
 import {
   loadActiveProvider,
   loadProviders,
@@ -26,6 +33,10 @@ export default function SettingsScreen() {
   const [providers, setProviders] = useState<Record<ProviderId, ProviderConfig> | null>(null);
   const [activeId, setActiveId] = useState<ProviderId>("deepseek");
   const [dirty, setDirty] = useState(false);
+  const [quickKey, setQuickKey] = useState("");
+  const [detectError, setDetectError] = useState("");
+  const [modelsByProvider, setModelsByProvider] = useState<Partial<Record<ProviderId, string[]>>>({});
+  const [loadingModels, setLoadingModels] = useState<ProviderId | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -36,6 +47,43 @@ export default function SettingsScreen() {
   }, []);
 
   if (!providers) return null;
+
+  const quickAdd = () => {
+    const detected = detectProvider(quickKey);
+    if (!detected) {
+      setDetectError("Unknown key format. Pick a provider and add the key manually below.");
+      return;
+    }
+    const p = { ...providers };
+    p[detected.id] = {
+      ...p[detected.id],
+      apiKey: quickKey.trim(),
+      baseUrl: detected.baseUrl || p[detected.id].baseUrl,
+      model: detected.model || p[detected.id].model,
+    };
+    setProviders(p);
+    setActiveId(detected.id);
+    setQuickKey("");
+    setDetectError("");
+    setDirty(true);
+  };
+
+  const loadModels = async (id: ProviderId) => {
+    const p = providers[id];
+    if (!p.baseUrl || !p.apiKey) {
+      Alert.alert("Missing", "Set the base URL and API key first.");
+      return;
+    }
+    setLoadingModels(id);
+    try {
+      const ids = await fetchModels(p.baseUrl, p.apiKey);
+      setModelsByProvider((m) => ({ ...m, [id]: ids }));
+    } catch (e) {
+      Alert.alert("Failed", (e as Error).message);
+    } finally {
+      setLoadingModels(null);
+    }
+  };
 
   const update = (id: ProviderId, patch: Partial<ProviderConfig>) => {
     setProviders((p) => (p ? { ...p, [id]: { ...p[id], ...patch } } : p));
@@ -60,6 +108,29 @@ export default function SettingsScreen() {
           Keys live on your device only. Nothing leaves the phone except requests to the
           provider you pick. Env defaults (EXPO_PUBLIC_*) show as placeholders.
         </Text>
+
+        <Text style={styles.sectionTitle}>QUICK ADD</Text>
+        <TextInput
+          style={styles.input}
+          value={quickKey}
+          onChangeText={(t) => {
+            setQuickKey(t);
+            setDetectError("");
+          }}
+          placeholder="Paste an API key, the provider is detected"
+          placeholderTextColor="#3d4450"
+          autoCapitalize="none"
+          autoCorrect={false}
+          secureTextEntry
+        />
+        {detectError ? <Text style={styles.detectError}>{detectError}</Text> : null}
+        <Pressable
+          style={[styles.detectBtn, !quickKey.trim() && styles.saveBtnDim]}
+          onPress={quickAdd}
+          disabled={!quickKey.trim()}
+        >
+          <Text style={styles.detectText}>Detect and add</Text>
+        </Pressable>
 
         <Text style={styles.sectionTitle}>ACTIVE PROVIDER</Text>
         <View style={styles.radioGroup}>
@@ -118,11 +189,41 @@ export default function SettingsScreen() {
                 style={styles.input}
                 value={p.model}
                 onChangeText={(t) => update(id, { model: t })}
-                placeholder="model-id"
+                placeholder="model id"
                 placeholderTextColor="#3d4450"
                 autoCapitalize="none"
                 autoCorrect={false}
               />
+              <Pressable
+                style={styles.loadBtn}
+                onPress={() => loadModels(id)}
+                disabled={loadingModels === id}
+              >
+                <Text style={styles.loadBtnText}>
+                  {loadingModels === id ? "Loading…" : "Load models from this provider"}
+                </Text>
+              </Pressable>
+              {modelsByProvider[id] && (
+                <View style={styles.modelChips}>
+                  {modelsByProvider[id]!.map((mid) => (
+                    <Pressable
+                      key={mid}
+                      style={[styles.modelChip, mid === p.model && styles.modelChipActive]}
+                      onPress={() => update(id, { model: mid })}
+                    >
+                      <Text
+                        style={[
+                          styles.modelChipText,
+                          mid === p.model && styles.modelChipTextActive,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {mid}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
             </View>
           );
         })}
@@ -139,6 +240,40 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#0a0c10" },
   content: { padding: 16, paddingBottom: 48 },
   note: { color: "#8b919c", fontSize: 13, lineHeight: 19, marginBottom: 16 },
+  detectError: { color: "#ff6b6b", fontSize: 12, marginTop: 6 },
+  detectBtn: {
+    backgroundColor: "#171d26",
+    borderColor: GOLD,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  detectText: { color: GOLD, fontSize: 14, fontWeight: "600" },
+  loadBtn: {
+    borderColor: "#2a3140",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+    marginTop: 8,
+    backgroundColor: "#12151b",
+  },
+  loadBtnText: { color: "#c8cdd6", fontSize: 13 },
+  modelChips: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
+  modelChip: {
+    borderColor: "#2a3140",
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: "#12151b",
+    maxWidth: "100%",
+  },
+  modelChipActive: { borderColor: GOLD },
+  modelChipText: { color: "#c8cdd6", fontSize: 12 },
+  modelChipTextActive: { color: GOLD, fontWeight: "600" },
   sectionTitle: { color: "#5a6270", fontSize: 11, fontWeight: "700", letterSpacing: 2, marginBottom: 8 },
   radioGroup: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 },
   radio: {

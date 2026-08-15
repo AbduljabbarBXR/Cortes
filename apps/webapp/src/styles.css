@@ -368,6 +368,30 @@ body {
   margin-bottom: 8px;
 }
 
+.detectError {
+  color: var(--danger);
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.detectBtn {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  border-radius: 10px;
+  padding: 11px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+  margin-bottom: 16px;
+}
+
+.detectBtn:disabled {
+  opacity: 0.4;
+}
+
 .radioGroup {
   display: flex;
   flex-wrap: wrap;
@@ -442,4 +466,47 @@ body {
   font-weight: 700;
   cursor: pointer;
   margin-top: 8px;
+}
+
+.loadBtn {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  color: #c8cdd6;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 13px;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.loadBtn:disabled {
+  opacity: 0.5;
+}
+
+.modelChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.modelChip {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  color: #c8cdd6;
+  border-radius: 14px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modelChipActive {
+  border-color: var(--gold);
+  color: var(--gold);
+  font-weight: 600;
 }

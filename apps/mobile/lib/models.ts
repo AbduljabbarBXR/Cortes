@@ -1,4 +1,4 @@
-export type ProviderId = "deepseek" | "hermes" | "openrouter" | "custom";
+export type ProviderId = "deepseek" | "openrouter" | "custom";
 
 export interface ProviderConfig {
   id: ProviderId;
@@ -20,20 +20,12 @@ export const PROVIDER_PRESETS: Record<ProviderId, ProviderConfig> = {
     model: "deepseek-chat",
     hint: "deepseek-chat (fast) or deepseek-reasoner (thinking)",
   },
-  hermes: {
-    id: "hermes",
-    label: "Hermes",
-    baseUrl: env.EXPO_PUBLIC_HERMES_BASE_URL ?? "",
-    apiKey: env.EXPO_PUBLIC_HERMES_API_KEY ?? "",
-    model: env.EXPO_PUBLIC_HERMES_MODEL ?? "",
-    hint: "Any OpenAI-compatible host: self-hosted vLLM, Together, your own box",
-  },
   openrouter: {
     id: "openrouter",
     label: "OpenRouter",
     baseUrl: "https://openrouter.ai/api/v1",
     apiKey: env.EXPO_PUBLIC_OPENROUTER_API_KEY ?? "",
-    model: env.EXPO_PUBLIC_OPENROUTER_MODEL ?? "deepseek/deepseek-r1:free",
+    model: env.EXPO_PUBLIC_OPENROUTER_MODEL ?? "openai/gpt-oss-20b:free",
     hint: "Free trial models use the :free suffix. One key covers hundreds of models",
   },
   custom: {
@@ -42,8 +34,48 @@ export const PROVIDER_PRESETS: Record<ProviderId, ProviderConfig> = {
     baseUrl: "",
     apiKey: "",
     model: "",
-    hint: "Point at any OpenAI-compatible /chat/completions endpoint",
+    hint: "Point at any OpenAI compatible /chat/completions endpoint",
   },
 };
 
-export const PROVIDER_IDS: ProviderId[] = ["deepseek", "hermes", "openrouter", "custom"];
+export const PROVIDER_IDS: ProviderId[] = ["deepseek", "openrouter", "custom"];
+
+/**
+ * Sniffs the provider from an API key prefix. Returns the provider id to
+ * activate plus the fields to fill. null means the key format is unknown.
+ */
+export function detectProvider(key: string): {
+  id: ProviderId;
+  baseUrl: string;
+  model: string;
+} | null {
+  const k = key.trim();
+  if (k.startsWith("sk-or-")) {
+    return { id: "openrouter", baseUrl: PROVIDER_PRESETS.openrouter.baseUrl, model: "openai/gpt-oss-20b:free" };
+  }
+  if (k.startsWith("AIza")) {
+    return {
+      id: "custom",
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+      model: "gemini-2.5-flash",
+    };
+  }
+  if (k.startsWith("gsk_")) {
+    return { id: "custom", baseUrl: "https://api.groq.com/openai/v1", model: "llama-3.3-70b-versatile" };
+  }
+  if (k.startsWith("sk-")) {
+    return { id: "deepseek", baseUrl: PROVIDER_PRESETS.deepseek.baseUrl, model: "deepseek-chat" };
+  }
+  return null;
+}
+
+/** Fetches the model id list from any OpenAI compatible /models endpoint. */
+export async function fetchModels(baseUrl: string, apiKey: string): Promise<string[]> {
+  const url = `${baseUrl.replace(/\/+$/, "")}/models`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: failed to list models`);
+  const json = (await res.json()) as { data?: { id: string }[] };
+  return (json.data ?? []).map((m) => m.id).filter(Boolean);
+}

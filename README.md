@@ -38,14 +38,13 @@ Cortes is a **mobile first coding platform that teaches as it codes**:
 
 ### Model support (BYOK)
 
-Bring your own key to any provider. Nothing is shipped in the app, keys live on your device.
+Bring your own key. Nothing is shipped in the app, keys live on your device. Paste any key in Settings and the provider is detected automatically (`sk-or-` = OpenRouter, `sk-` = DeepSeek, `AIza` = Gemini, `gsk_` = Groq). A Custom slot covers any OpenAI compatible endpoint.
 
 | Provider | Default model | Notes |
 |---|---|---|
 | DeepSeek | `deepseek-chat` | Also `deepseek-reasoner` with live thinking display |
-| Hermes | any | Point at any OpenAI compatible host (vLLM, Together, your own box) |
-| OpenRouter | `deepseek/deepseek-r1:free` | Free `:free` models for trial |
-| Custom | any | Any OpenAI compatible `/chat/completions` endpoint |
+| OpenRouter | `openai/gpt-oss-20b:free` | Free `:free` models for trial |
+| Custom | any | Any OpenAI compatible `/chat/completions` endpoint (Gemini, Groq, your own box) |
 
 ## Running the web app
 
