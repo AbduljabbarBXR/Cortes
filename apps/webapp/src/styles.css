@@ -93,7 +93,128 @@ body {
 }
 
 .previewBody {
-  height: 200px;
+  height: 220px;
+  overflow-y: auto;
+}
+
+.scaffoldTabs {
+  display: flex;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.scaffoldTab {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--dim);
+  padding: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.scaffoldTabActive {
+  color: var(--gold);
+  border-bottom-color: var(--gold);
+}
+
+.scaffoldView {
+  padding: 10px;
+}
+
+.diagram {
+  background: #0c0f14;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 15px;
+  color: #9fdc9a;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.tagChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 0 4px;
+}
+
+.tagChip {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: #c8cdd6;
+  border-radius: 14px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tagChipActive {
+  border-color: var(--gold);
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.scaffoldFence {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 10px 0;
+  background: #101319;
+  transition: border-color 0.15s;
+}
+
+.fenceActive {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold);
+}
+
+.fenceDim {
+  opacity: 0.35;
+}
+
+.fenceHead {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  background: var(--surface2);
+  color: #8b919c;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.fenceTag {
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.fenceCode {
+  margin: 0;
+  padding: 10px;
+  overflow-x: auto;
+}
+
+.fenceCode code {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  color: #d7dce3;
+}
+
+.reqNotes {
+  min-height: 70px;
+  resize: vertical;
+}
+
+.reqPanel {
+  max-width: 620px;
 }
 
 .previewFrame {
