@@ -87,17 +87,6 @@ For normal development, build the APK on a PC: `cd apps/mobile && npx expo run:a
 
 Upstream docs apply to the agent core: **[hermes-agent.nousresearch.com/docs](https://hermes-agent.nousresearch.com/docs/)**.
 
-## Roadmap
-
-- [x] Fork, strip, rebrand to Cortes (MIT kept)
-- [x] Mobile shell: chat + canvas preview + pre prompts + BYOK providers
-- [x] Web shell: same product in the browser
-- [ ] Requirements to scaffold tagged flow (diagram to code mapping)
-- [ ] Real Termux terminal integration in the mobile app
-- [ ] Offline tier (llama.rn, small models under 5B)
-- [ ] Multi project list, moderation hook
-- [ ] Web app behind auth in the dashboard
-
 ## License
 
 MIT, see [LICENSE](LICENSE). Fork of [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) © 2025 Nous Research.
