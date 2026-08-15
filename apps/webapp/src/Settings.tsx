@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { ProviderConfig, ProviderId } from "./lib/models";
-import { PROVIDER_IDS, detectProvider, fetchModels } from "./lib/models";
+import { PROVIDER_IDS, detectProvider, fetchCredits, fetchModels } from "./lib/models";
 import { saveActiveProvider, saveProviders } from "./lib/storage";
+import { useToast } from "./lib/toasts";
+import ModelPicker from "./ModelPicker";
 
 interface Props {
   providers: Record<ProviderId, ProviderConfig> | null;
@@ -19,31 +21,29 @@ export default function Settings({
   onProvidersChange,
   onActiveChange,
 }: Props) {
+  const { notify } = useToast();
+  const [tab, setTab] = useState<ProviderId>(activeId);
   const [quickKey, setQuickKey] = useState("");
   const [detectError, setDetectError] = useState("");
-  const [modelsByProvider, setModelsByProvider] = useState<Partial<Record<ProviderId, string[]>>>({});
-  const [loadingModels, setLoadingModels] = useState<ProviderId | null>(null);
+  const [models, setModels] = useState<string[] | null>(null);
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  const [balance, setBalance] = useState<string | null>(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+
+  useEffect(() => {
+    setModels(null);
+    setBalance(null);
+    if (tab === "openrouter") void checkBalance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
   if (!providers) return null;
 
-  const loadModels = async (id: ProviderId) => {
-    const p = providers[id];
-    if (!p.baseUrl || !p.apiKey) {
-      setDetectError("Set the base URL and API key first.");
-      return;
-    }
-    setLoadingModels(id);
-    try {
-      const ids = await fetchModels(p.baseUrl, p.apiKey);
-      setModelsByProvider((m) => ({ ...m, [id]: ids }));
-    } catch (e) {
-      setDetectError((e as Error).message);
-    } finally {
-      setLoadingModels(null);
-    }
-  };
+  const p = providers[tab];
 
-  const update = (id: ProviderId, patch: Partial<ProviderConfig>) => {
-    onProvidersChange({ ...providers, [id]: { ...providers[id], ...patch } });
+  const update = (patch: Partial<ProviderConfig>) => {
+    onProvidersChange({ ...providers, [tab]: { ...p, ...patch } });
   };
 
   const quickAdd = (key: string) => {
@@ -52,28 +52,58 @@ export default function Settings({
       setDetectError("Unknown key format. Pick a provider and add the key manually below.");
       return;
     }
-    const p = { ...providers };
-    p[detected.id] = {
-      ...p[detected.id],
+    const next = { ...providers };
+    next[detected.id] = {
+      ...next[detected.id],
       apiKey: key.trim(),
-      baseUrl: detected.baseUrl || p[detected.id].baseUrl,
-      model: detected.model || p[detected.id].model,
+      baseUrl: detected.baseUrl || next[detected.id].baseUrl,
+      model: detected.model || next[detected.id].model,
     };
-    onProvidersChange(p);
+    onProvidersChange(next);
     onActiveChange(detected.id);
+    setQuickKey("");
+    setDetectError("");
+    notify("success", "API key added successfully.");
+  };
+
+  const loadModels = async () => {
+    if (!p.baseUrl || !p.apiKey) {
+      notify("error", "Set the base URL and API key first.");
+      return;
+    }
+    setLoadingModels(true);
+    try {
+      setModels(await fetchModels(p.baseUrl, p.apiKey));
+    } catch (e) {
+      notify("error", (e as Error).message);
+    } finally {
+      setLoadingModels(false);
+    }
+  };
+
+  const checkBalance = async () => {
+    if (!providers.openrouter.apiKey) return;
+    setBalanceLoading(true);
+    try {
+      setBalance(await fetchCredits(providers.openrouter.apiKey));
+    } catch {
+      setBalance(null);
+    } finally {
+      setBalanceLoading(false);
+    }
   };
 
   const save = () => {
     saveProviders(providers);
     saveActiveProvider(activeId);
-    onClose();
+    notify("success", "Saved successfully.");
   };
 
   return (
     <div className="overlay" onClick={onClose}>
       <div className="settings" onClick={(e) => e.stopPropagation()}>
         <div className="settingsHead">
-          <h2>Providers &amp; Keys</h2>
+          <h2>API Settings</h2>
           <button className="closeBtn" onClick={onClose} title="Close">
             ✕
           </button>
@@ -107,78 +137,75 @@ export default function Settings({
           Detect and add
         </button>
 
-        <p className="sectionTitle">ACTIVE PROVIDER</p>
+        <p className="sectionTitle">PROVIDERS</p>
         <div className="radioGroup">
           {PROVIDER_IDS.map((id) => (
             <button
               key={id}
-              className={`radio ${activeId === id ? "radioActive" : ""}`}
-              onClick={() => onActiveChange(id)}
+              className={`radio ${tab === id ? "radioActive" : ""}`}
+              onClick={() => setTab(id)}
             >
-              {activeId === id ? "◉" : "○"} {providers[id].label}
+              {providers[id].label}
             </button>
           ))}
         </div>
 
-        {PROVIDER_IDS.map((id) => {
-          const p = providers[id];
-          return (
-            <div key={id} className="card">
-              <p className="cardTitle">{p.label}</p>
-              {p.hint ? <p className="cardHint">{p.hint}</p> : null}
-              <label className="fieldLabel">Base URL</label>
-              <input
-                className="field"
-                value={p.baseUrl}
-                onChange={(e) => update(id, { baseUrl: e.target.value })}
-                placeholder="https://…"
-                spellCheck={false}
-              />
-              <label className="fieldLabel">API Key</label>
-              <input
-                className="field"
-                type="password"
-                value={p.apiKey}
-                onChange={(e) => update(id, { apiKey: e.target.value })}
-                placeholder="sk-…"
-                spellCheck={false}
-              />
-              <label className="fieldLabel">Model</label>
-              <input
-                className="field"
-                value={p.model}
-                onChange={(e) => update(id, { model: e.target.value })}
-                placeholder="model id"
-                spellCheck={false}
-              />
-              <button
-                className="loadBtn"
-                onClick={() => loadModels(id)}
-                disabled={loadingModels === id}
-              >
-                {loadingModels === id ? "Loading…" : "Load models from this provider"}
-              </button>
-              {modelsByProvider[id] && (
-                <div className="modelChips">
-                  {modelsByProvider[id]!.map((mid) => (
-                    <button
-                      key={mid}
-                      className={`modelChip ${mid === p.model ? "modelChipActive" : ""}`}
-                      onClick={() => update(id, { model: mid })}
-                    >
-                      {mid}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
+        <div className="card">
+          <p className="cardTitle">{p.label}</p>
+          {p.hint ? <p className="cardHint">{p.hint}</p> : null}
+
+          <label className="fieldLabel">Base URL</label>
+          <input
+            className="field"
+            value={p.baseUrl}
+            onChange={(e) => update({ baseUrl: e.target.value })}
+            placeholder="https://…"
+            spellCheck={false}
+          />
+
+          <label className="fieldLabel">API Key</label>
+          <input
+            className="field"
+            type="password"
+            value={p.apiKey}
+            onChange={(e) => update({ apiKey: e.target.value })}
+            placeholder="sk-…"
+            spellCheck={false}
+          />
+
+          <label className="fieldLabel">Model</label>
+          <button className="field modelFieldBtn" onClick={() => setModelPickerOpen(true)}>
+            <span className="modelFieldValue">{p.model || "Pick a model"}</span>
+            <span className="modelFieldCaret">▾</span>
+          </button>
+
+          {tab === "openrouter" && (
+            <button className="loadBtn" onClick={checkBalance} disabled={balanceLoading}>
+              {balanceLoading
+                ? "Checking balance…"
+                : balance
+                  ? `Credits: ${balance}`
+                  : "Check OpenRouter credit balance"}
+            </button>
+          )}
+        </div>
 
         <button className="saveBtn" onClick={save}>
           Save
         </button>
       </div>
+
+      {modelPickerOpen && (
+        <ModelPicker
+          title={`${p.label} models`}
+          models={models}
+          loading={loadingModels}
+          value={p.model}
+          onSelect={(m) => update({ model: m })}
+          onClose={() => setModelPickerOpen(false)}
+          onLoad={loadModels}
+        />
+      )}
     </div>
   );
 }

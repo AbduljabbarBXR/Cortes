@@ -79,3 +79,27 @@ export async function fetchModels(baseUrl: string, apiKey: string): Promise<stri
   const json = (await res.json()) as { data?: { id: string }[] };
   return (json.data ?? []).map((m) => m.id).filter(Boolean);
 }
+
+/** Live OpenRouter credit balance, shown in the token viewer. */
+export async function fetchCredits(apiKey: string): Promise<string> {
+  const res = await fetch("https://openrouter.ai/api/v1/credits", {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: failed to fetch credits`);
+  const json = (await res.json()) as { data?: { total_credits?: number; usage?: number } };
+  const total = json.data?.total_credits ?? 0;
+  const used = json.data?.usage ?? 0;
+  const left = total - used;
+  return `$${left.toFixed(2)}`;
+}
+
+/** Rough token estimate when a provider does not report usage. */
+export function estimateTokens(text: string): number {
+  return Math.max(1, Math.ceil(text.length / 4));
+}
+
+export function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
+}

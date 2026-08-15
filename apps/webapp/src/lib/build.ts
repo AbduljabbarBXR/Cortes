@@ -7,7 +7,7 @@ export interface Brief {
   notes: string;
 }
 
-export const APP_TYPES = ["Website", "Mobile app", "Backend API", "AI system", "Other"];
+export const APP_TYPES = ["Website", "Backend API", "AI system", "Other"];
 
 export const STACKS = [
   "No preference",

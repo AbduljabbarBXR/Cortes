@@ -90,7 +90,6 @@ export function extractHtml(markdown: string): string | null {
 
 export const PRE_PROMPTS = [
   "Build a website",
-  "Build a mobile app",
   "Build a backend API",
   "Teach me system design",
   "Scaffold an AI system",

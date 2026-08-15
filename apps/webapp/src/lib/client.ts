@@ -3,6 +3,11 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface StreamUsage {
+  promptTokens: number;
+  completionTokens: number;
+}
+
 export interface StreamOptions {
   baseURL: string;
   apiKey: string;
@@ -10,6 +15,7 @@ export interface StreamOptions {
   messages: ChatMessage[];
   onText: (delta: string) => void;
   onReasoning?: (delta: string) => void;
+  onUsage?: (usage: StreamUsage) => void;
   onDone?: () => void;
   signal?: AbortSignal;
 }
@@ -27,6 +33,7 @@ export async function streamChat(opts: StreamOptions): Promise<void> {
       model: opts.model,
       messages: opts.messages,
       stream: true,
+      stream_options: { include_usage: true },
     }),
     signal: opts.signal,
   });
@@ -58,6 +65,12 @@ export async function streamChat(opts: StreamOptions): Promise<void> {
         try {
           const json = JSON.parse(payload);
           const delta = json.choices?.[0]?.delta;
+          if (typeof json.usage?.prompt_tokens === "number") {
+            opts.onUsage?.({
+              promptTokens: json.usage.prompt_tokens,
+              completionTokens: json.usage.completion_tokens ?? 0,
+            });
+          }
           if (!delta) continue;
           if (typeof delta.reasoning_content === "string" && delta.reasoning_content) {
             opts.onReasoning?.(delta.reasoning_content);
@@ -84,7 +97,6 @@ export function extractHtml(markdown: string): string | null {
 
 export const PRE_PROMPTS = [
   "Build a website",
-  "Build a mobile app",
   "Build a backend API",
   "Teach me system design",
   "Scaffold an AI system",
