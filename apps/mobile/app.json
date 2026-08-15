@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Cortes",
+    "slug": "cortes",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "cortes",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.abduljabbar.cortes"
+    },
+    "android": {
+      "package": "com.abduljabbar.cortes",
+      "edgeToEdgeEnabled": true
+    },
+    "plugins": ["expo-router", "expo-secure-store"]
+  }
+}
