@@ -6,45 +6,45 @@
 
 **The agent that grows with you. A mobile first coding platform built on [Hermes Agent](https://github.com/NousResearch/hermes-agent) by Nous Research.**
 
-Cortes is the self improving AI agent forked from Hermes Agent. It creates skills from experience, improves them during use, searches its own past conversations, and builds a deepening model of who you are across sessions. It runs on a $5 VPS, a GPU cluster, or right on your phone under Termux, and talks to any model you want: DeepSeek, OpenRouter, Hermes, OpenAI, your own endpoint. No lock in.
+Cortes is a self improving AI coding agent forked from Hermes Agent. It builds with you, teaches as it codes, and shows you every line as it is written. It runs on a small VPS, a GPU cluster, or right on your phone under Termux, and talks to any model you want: DeepSeek, OpenRouter, Gemini, Groq, or your own endpoint. No lock in.
 
 The agent core is unchanged from upstream. This fork rebrands the product, strips the non core surface (contribution docs, marketing website, research runners, desktop app), and adds the mobile and web clients.
 
 > **Attribution:** Cortes is MIT licensed and built on [Hermes Agent](https://github.com/NousResearch/hermes-agent) © 2025 Nous Research. See [LICENSE](LICENSE).
 
----
-
 ## Repo layout
 
-| Path | What it is |
-|---|---|
-| `hermes_cli/` `agent/` `gateway/` `tools/` `skills/` `plugins/` | The agent core (upstream, unmodified) |
-| `apps/mobile/` | The Cortes mobile app: Expo / React Native shell with chat, canvas preview panel, pre prompts, BYOK providers |
-| `apps/webapp/` | The Cortes web app: same product as a Vite + React page, dev server on port 3000 |
-| `web/` | Upstream dashboard UI (future home of the web app, behind auth) |
-| `ui-tui/` | Terminal UI (TUI) |
-| `scripts/build-hermesc-arm64.sh` | Build a native arm64 hermesc on device for fully on device release builds |
-| `assets/` | Branding |
+* `hermes_cli/` `agent/` `gateway/` `tools/` `skills/` `plugins/`: the agent core, upstream and unmodified
+* `apps/mobile/`: the Cortes mobile app, an Expo / React Native shell with chat, canvas preview panel, pre prompts, and BYOK providers
+* `apps/webapp/`: the Cortes web app, the same product as a Vite + React page, dev server on port 3000
+* `web/`: upstream dashboard UI, the future home of the web app behind auth
+* `ui-tui/`: the terminal user interface
+* `scripts/`: the on device arm64 hermesc builder for fully on device release builds
+* `assets/`: branding
 
-## The product
+## The build loop
 
-Cortes is a **mobile first coding platform that teaches as it codes**:
+Cortes builds in small phases so you can always see exactly what changed and why.
 
-1. **Requirements phase.** You tell Cortes what you want to build. It interviews you about screens, stack, and scope before writing a line.
-2. **Scaffold phase.** Cortes diagrams the system (ASCII), then writes tagged files step by step, explaining as it goes.
-3. **Preview phase.** The built UI appears in a live panel above the chat. You touch what you built.
-4. **Terminal phase.** Termux runs the real dev server. Cortes shows you the real logs, collapsible, so you understand what is running.
-5. **Toggles.** Terminal view, code to UI mapping, and preview frames (phone, tablet, desktop).
+1. **Requirements phase.** You tell Cortes what you want to build. It asks about screens, stack, and scope before writing a line.
+2. **Phase by phase builds.** The first response builds only the hero section (headline, subtext, call to action). Reply "next" to build the next phase, one at a time, with the model explaining each file as it goes.
+3. **Live code editor.** While the model writes, the screen becomes a fullscreen editor: file tabs, line numbers, a blinking cursor that follows the typing, and autoscroll. New files appear as tabs the moment their fence opens.
+4. **Edit diffs.** Ask for a change and the editor reopens with a real diff: added lines in green, removed lines in red, and a dot on every changed file tab. New files added by an edit show clean, with no diff.
+5. **Instant preview.** The moment the model finishes, the editor hands over to the rendered page fullscreen. Close it and the page collapses to a button above the chat; click the button to reopen.
 
-### Model support (BYOK)
+## The editor
 
-Bring your own key. Nothing is shipped in the app, keys live on your device. Paste any key in Settings and the provider is detected automatically (`sk-or-` = OpenRouter, `sk-` = DeepSeek, `AIza` = Gemini, `gsk_` = Groq). A Custom slot covers any OpenAI compatible endpoint.
+A small VS Code style editor lives inside the app. It parses the model output into real files in real time, keeps the diagram and teaching prose out of the way, and shows only what matters: the files being written. The waiting state animates a growing dot while the model prepares its first line.
 
-| Provider | Default model | Notes |
-|---|---|---|
-| DeepSeek | `deepseek-chat` | Also `deepseek-reasoner` with live thinking display |
-| OpenRouter | `openai/gpt-oss-20b:free` | Free `:free` models for trial |
-| Custom | any | Any OpenAI compatible `/chat/completions` endpoint (Gemini, Groq, your own box) |
+## Model support (BYOK)
+
+Bring your own key. Nothing is shipped in the app, keys live on your device. Paste any key in Settings and the provider is detected automatically: OpenRouter keys start with sk or, DeepSeek keys start with sk, Gemini keys start with AIza, Groq keys start with gsk underscore. A Custom slot covers any OpenAI compatible endpoint.
+
+* **DeepSeek:** deepseek chat for speed, deepseek reasoner for thinking, with live thinking display
+* **OpenRouter:** one key covers hundreds of models, free trial models use the free suffix
+* **Custom:** any OpenAI compatible chat completions endpoint, including Gemini and Groq
+
+The exact model ids are shown in the in app picker, which always has a working list even without a network connection, plus a manual entry box for typing any id.
 
 ## Running the web app
 
@@ -62,7 +62,7 @@ npm install
 npx expo start     # Expo Go on device
 ```
 
-Release APK and debug builds run on a PC (or EAS cloud), not on the phone. See the build section below for why.
+Release APK and debug builds run on a PC (or EAS cloud), not on the phone. See the building section below for why.
 
 ## The agent CLI (Termux first)
 
@@ -78,14 +78,14 @@ cortes doctor       # Diagnose issues
 
 The phone can build the app itself, but the Android toolchain Google ships has no arm64 host binaries (aapt2, cmake, and NDK host tools are x86_64 only). Two workarounds live in this repo:
 
-1. `scripts/build-hermesc-arm64.sh` builds the Hermes bytecode compiler natively for arm64.
+1. The script in `scripts/` builds the Hermes bytecode compiler natively for arm64.
 2. System level: aapt2 and cmake must be swapped for arm64 binaries (see the script and the commit history for the exact steps).
 
 For normal development, build the APK on a PC: `cd apps/mobile && npx expo run:android` or EAS cloud.
 
 ## Documentation
 
-Upstream docs apply to the agent core: **[hermes-agent.nousresearch.com/docs](https://hermes-agent.nousresearch.com/docs/)**.
+Upstream docs apply to the agent core: **[hermes agent docs](https://hermes-agent.nousresearch.com/docs/)**.
 
 ## License
 
