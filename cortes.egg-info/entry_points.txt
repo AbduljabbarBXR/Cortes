@@ -1,0 +1,4 @@
+[console_scripts]
+cortes = hermes_cli.main:main
+cortes-acp = acp_adapter.entry:main
+cortes-agent = run_agent:main
